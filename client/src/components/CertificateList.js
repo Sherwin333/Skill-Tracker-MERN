@@ -1,16 +1,15 @@
 // client/src/components/CertificateList.js
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNotification } from '../context/NotificationContext'; // Import useNotification
-import CertificateCard from './CertificateCard';
-import { RefreshCw, X, Save, FileText, Calendar, Award, Link, Info, Tag, Globe, Search, AlertTriangle } from 'lucide-react'; // Added AlertTriangle icon
+import { useNotification } from '../context/NotificationContext';
+import CertificateCard from './CertificateCard'; // <--- ADDED THIS IMPORT
+import { RefreshCw, X, Save, Globe, Search, AlertTriangle } from 'lucide-react';
 
 const CertificateList = ({ refreshTrigger }) => {
   const { token } = useAuth();
-  const { addNotification } = useNotification(); // Use the notification hook
+  const { addNotification } = useNotification();
   const [certificates, setCertificates] = useState([]);
   const [loading, setLoading] = useState(true);
-  // Removed local error and message states
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingCertificate, setEditingCertificate] = useState(null);
@@ -19,14 +18,12 @@ const CertificateList = ({ refreshTrigger }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('All');
 
-  // New state for custom delete confirmation modal
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [certificateToDelete, setCertificateToDelete] = useState(null);
 
   useEffect(() => {
     const fetchCertificates = async () => {
       setLoading(true);
-      // Removed local error state
       try {
         const res = await fetch('/api/certificates', {
           headers: {
@@ -35,13 +32,13 @@ const CertificateList = ({ refreshTrigger }) => {
         });
         const data = await res.json();
         if (!res.ok) {
-          addNotification(data.msg || 'Failed to fetch certificates.', 'error'); // Use notification
+          addNotification(data.msg || 'Failed to fetch certificates.', 'error');
         } else {
           setCertificates(data);
         }
       } catch (err) {
         console.error('Error fetching certificates:', err);
-        addNotification('Server error during fetch.', 'error'); // Use notification
+        addNotification('Server error during fetch.', 'error');
       } finally {
         setLoading(false);
       }
@@ -50,21 +47,18 @@ const CertificateList = ({ refreshTrigger }) => {
     if (token) {
       fetchCertificates();
     }
-  }, [token, refreshTrigger, addNotification]); // Add addNotification to dependencies
+  }, [token, refreshTrigger, addNotification]);
 
-  // Function to open delete confirmation modal
   const confirmDelete = (id) => {
     setCertificateToDelete(id);
     setShowDeleteConfirmModal(true);
   };
 
-  // Function to handle actual deletion after confirmation
   const handleDelete = async () => {
-    setShowDeleteConfirmModal(false); // Close modal
-    if (!certificateToDelete) return; // Should not happen if modal is properly triggered
+    setShowDeleteConfirmModal(false);
+    if (!certificateToDelete) return;
 
     setLoading(true);
-    // Removed local error and message states
     try {
       const res = await fetch(`/api/certificates/${certificateToDelete}`, {
         method: 'DELETE',
@@ -75,17 +69,17 @@ const CertificateList = ({ refreshTrigger }) => {
 
       if (!res.ok) {
         const data = await res.json();
-        addNotification(data.msg || 'Failed to delete certificate.', 'error'); // Use notification
+        addNotification(data.msg || 'Failed to delete certificate.', 'error');
       } else {
         setCertificates(certificates.filter(cert => cert._id !== certificateToDelete));
-        addNotification('Certificate deleted successfully!', 'success'); // Use notification
+        addNotification('Certificate deleted successfully!', 'success');
       }
     } catch (err) {
       console.error('Error deleting certificate:', err);
-      addNotification('Server error during deletion.', 'error'); // Use notification
+      addNotification('Server error during deletion.', 'error');
     } finally {
       setLoading(false);
-      setCertificateToDelete(null); // Clear certificate to delete
+      setCertificateToDelete(null);
     }
   };
 
@@ -106,11 +100,9 @@ const CertificateList = ({ refreshTrigger }) => {
     });
   };
 
-
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    // Removed local error and message states
     try {
       const res = await fetch(`/api/certificates/${editingCertificate._id}`, {
         method: 'PUT',
@@ -123,18 +115,18 @@ const CertificateList = ({ refreshTrigger }) => {
 
       const data = await res.json();
       if (!res.ok) {
-        addNotification(data.msg || 'Failed to update certificate.', 'error'); // Use notification
+        addNotification(data.msg || 'Failed to update certificate.', 'error');
       } else {
         setCertificates(certificates.map(cert =>
           cert._id === editingCertificate._id ? data : cert
         ));
-        addNotification('Certificate updated successfully!', 'success'); // Use notification
+        addNotification('Certificate updated successfully!', 'success');
         setShowEditModal(false);
         setEditingCertificate(null);
       }
     } catch (err) {
       console.error('Error updating certificate:', err);
-      addNotification('Server error during update.', 'error'); // Use notification
+      addNotification('Server error during update.', 'error');
     } finally {
       setLoading(false);
     }
@@ -172,17 +164,13 @@ const CertificateList = ({ refreshTrigger }) => {
     );
   }
 
-  // Removed global error display as notifications handle it
-
   const uniqueCategories = ['All', ...new Set(certificates.map(cert => cert.category))].sort();
 
 
   return (
     <div className="mt-8">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Your Certificates</h2>
-      {/* Removed local message display */}
 
-      {/* Search and Filter Bar */}
       <div className="flex flex-col md:flex-row gap-4 mb-6">
         <div className="relative flex-grow">
           <input
@@ -206,7 +194,6 @@ const CertificateList = ({ refreshTrigger }) => {
           ))}
         </select>
       </div>
-      {/* End Search and Filter Bar */}
 
 
       {filteredCertificates.length === 0 ? (
@@ -217,14 +204,13 @@ const CertificateList = ({ refreshTrigger }) => {
             <CertificateCard
               key={cert._id}
               certificate={cert}
-              onDelete={() => confirmDelete(cert._id)} // Use confirmDelete
+              onDelete={() => confirmDelete(cert._id)}
               onEdit={handleEditClick}
             />
           ))}
         </div>
       )}
 
-      {/* Edit Modal (remains the same) */}
       {showEditModal && editingCertificate && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
           <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg relative">
@@ -320,7 +306,6 @@ const CertificateList = ({ refreshTrigger }) => {
                 </select>
               </div>
 
-              {/* isPublic Toggle */}
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <label htmlFor="editIsPublic" className="block text-sm font-medium text-gray-700 flex items-center">
                   <Globe className="mr-2" size={16} /> Make Public
@@ -361,7 +346,6 @@ const CertificateList = ({ refreshTrigger }) => {
         </div>
       )}
 
-      {/* Custom Delete Confirmation Modal */}
       {showDeleteConfirmModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
           <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm relative text-center">
