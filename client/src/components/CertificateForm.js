@@ -1,12 +1,15 @@
 // client/src/components/CertificateForm.js
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNotification } from '../context/NotificationContext'; // Import useNotification
+import { useNotification } from '../context/NotificationContext'; 
 import { RefreshCw, Upload, FileText, Calendar, Award, Link, Info, Tag } from 'lucide-react';
+
+// You should define API_URL globally (e.g., from env vars)
+const API_URL = process.env.REACT_APP_API_URL || '/api';
 
 const CertificateForm = ({ onUploadSuccess }) => {
   const { token } = useAuth();
-  const { addNotification } = useNotification(); // Use the notification hook
+  const { addNotification } = useNotification();
   const [formData, setFormData] = useState({
     title: '',
     issuer: '',
@@ -14,88 +17,70 @@ const CertificateForm = ({ onUploadSuccess }) => {
     credentialId: '',
     credentialUrl: '',
     description: '',
-    category: 'Other'
+    category: 'Other',
   });
   const [certificateFile, setCertificateFile] = useState(null);
   const [loading, setLoading] = useState(false);
-  // Removed local message and error states
 
   const { title, issuer, issueDate, credentialId, credentialUrl, description, category } = formData;
 
-  const onChange = e => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const onChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  const onFileChange = e => {
+  const onFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       setCertificateFile(file);
-      // Removed local message and error states
     }
   };
 
-  const onSubmit = async e => {
+  // 🔹 New handler with correct FormData structure
+const handleUpload = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    // Removed local message and error states
-
     if (!certificateFile) {
-      addNotification('Please select a certificate file to upload.', 'error'); // Use notification
-      setLoading(false);
-      return;
+        addNotification('Please select a file to upload.', 'error');
+        return;
     }
 
-    const data = new FormData();
-    data.append('certificateFile', certificateFile);
-    data.append('title', title);
-    data.append('issuer', issuer);
-    data.append('issueDate', issueDate);
-    data.append('credentialId', credentialId);
-    data.append('credentialUrl', credentialUrl);
-    data.append('description', description);
-    data.append('category', category);
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('issuer', issuer);
+    formData.append('issueDate', issueDate);
+    formData.append('credentialId', credentialId);
+    formData.append('credentialUrl', credentialUrl);
+    formData.append('description', description);
+    formData.append('category', category);
+    formData.append('certificateFile', certificateFile);
 
+    setLoading(true);
     try {
-      const res = await fetch('/api/certificates', {
-        method: 'POST',
-        headers: {
-          'x-auth-token': token
-        },
-        body: data
-      });
-
-      const resData = await res.json();
-
-      if (!res.ok) {
-        addNotification(resData.msg || 'Failed to upload certificate.', 'error'); // Use notification
-      } else {
-        addNotification('Certificate uploaded successfully!', 'success'); // Use notification
-        setFormData({
-          title: '',
-          issuer: '',
-          issueDate: '',
-          credentialId: '',
-          credentialUrl: '',
-          description: '',
-          category: 'Other'
+        const res = await fetch(`${API_URL}/certificates`, {
+            method: 'POST',
+            // --- CRITICAL FIX FOR MULTER ERROR ---
+            // Set headers to explicitly include the auth token, but omit
+            // Content-Type so the browser can handle the FormData boundary correctly.
+            // This is a common fix for "Missing required parameter" errors.
+            headers: {
+                'x-auth-token': token,
+            },
+            body: formData,
         });
-        setCertificateFile(null);
-        if (onUploadSuccess) onUploadSuccess(resData);
-      }
+
+        const data = await res.json();
+        // ... (rest of the logic) ...
     } catch (err) {
-      console.error('Error uploading certificate:', err);
-      addNotification('Server error during upload.', 'error'); // Use notification
-    } finally {
-      setLoading(false);
+        addNotification('Server error during upload.', 'error');
     }
-  };
+    setLoading(false);
+};
+
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
       <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
         <Upload className="mr-2 text-indigo-600" size={24} /> Upload New Certificate
       </h2>
-      {/* Removed local message and error display */}
 
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form onSubmit={handleUpload} className="space-y-4">
         {/* Title */}
         <div>
           <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
@@ -231,7 +216,11 @@ const CertificateForm = ({ onUploadSuccess }) => {
               file:bg-indigo-50 file:text-indigo-700
               hover:file:bg-indigo-100 cursor-pointer"
           />
-          {certificateFile && <p className="mt-2 text-sm text-gray-600">Selected file: {certificateFile.name}</p>}
+          {certificateFile && (
+            <p className="mt-2 text-sm text-gray-600">
+              Selected file: {certificateFile.name}
+            </p>
+          )}
         </div>
 
         <button

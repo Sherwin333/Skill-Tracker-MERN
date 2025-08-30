@@ -1,8 +1,7 @@
-// client/src/components/CertificateList.js
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
-import CertificateCard from './CertificateCard'; // <--- ADDED THIS IMPORT
+import CertificateCard from './CertificateCard';
 import { RefreshCw, X, Save, Globe, Search, AlertTriangle } from 'lucide-react';
 
 const CertificateList = ({ refreshTrigger }) => {
@@ -93,24 +92,38 @@ const CertificateList = ({ refreshTrigger }) => {
   };
 
   const handleEditFormChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setEditFormData({
-      ...editFormData,
-      [name]: type === 'checkbox' ? checked : value
-    });
+    const { name, value, type, checked, files } = e.target;
+
+    if (type === 'file' && files.length > 0) {
+      setEditFormData({
+        ...editFormData,
+        certificateFile: files[0] // Save file object
+      });
+    } else {
+      setEditFormData({
+        ...editFormData,
+        [name]: type === 'checkbox' ? checked : value
+      });
+    }
   };
 
+  // 🔥 Updated to handle FormData with file upload
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
+      const formData = new FormData();
+      Object.keys(editFormData).forEach((key) => {
+        formData.append(key, editFormData[key]);
+      });
+
       const res = await fetch(`/api/certificates/${editingCertificate._id}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
           'x-auth-token': token
+          // ❌ don't set Content-Type, fetch will handle it for FormData
         },
-        body: JSON.stringify(editFormData)
+        body: formData
       });
 
       const data = await res.json();
@@ -154,7 +167,6 @@ const CertificateList = ({ refreshTrigger }) => {
     return currentCertificates;
   }, [certificates, filterCategory, searchTerm]);
 
-
   if (loading && certificates.length === 0) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -165,7 +177,6 @@ const CertificateList = ({ refreshTrigger }) => {
   }
 
   const uniqueCategories = ['All', ...new Set(certificates.map(cert => cert.category))].sort();
-
 
   return (
     <div className="mt-8">
@@ -194,7 +205,6 @@ const CertificateList = ({ refreshTrigger }) => {
           ))}
         </select>
       </div>
-
 
       {filteredCertificates.length === 0 ? (
         <p className="text-gray-600 text-center py-8">No matching certificates found.</p>
@@ -306,6 +316,31 @@ const CertificateList = ({ refreshTrigger }) => {
                 </select>
               </div>
 
+              {/* 🔥 File Upload for Replace */}
+              <div>
+                <label htmlFor="editFile" className="block text-sm font-medium text-gray-700 mb-1">
+                  Replace Certificate File (optional)
+                </label>
+                <input
+                  type="file"
+                  id="editFile"
+                  name="certificateFile"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={handleEditFormChange}
+                  className="block w-full text-sm text-gray-500
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-full file:border-0
+                    file:text-sm file:font-semibold
+                    file:bg-indigo-50 file:text-indigo-700
+                    hover:file:bg-indigo-100 cursor-pointer"
+                />
+                {editFormData.certificateFile && (
+                  <p className="mt-2 text-sm text-gray-600">
+                    Selected file: {editFormData.certificateFile.name}
+                  </p>
+                )}
+              </div>
+
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <label htmlFor="editIsPublic" className="block text-sm font-medium text-gray-700 flex items-center">
                   <Globe className="mr-2" size={16} /> Make Public
@@ -321,7 +356,11 @@ const CertificateList = ({ refreshTrigger }) => {
                       className="sr-only"
                     />
                     <div className="block bg-gray-300 w-14 h-8 rounded-full"></div>
-                    <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition ${editFormData.isPublic ? 'transform translate-x-full bg-green-500' : 'bg-gray-400'}`}></div>
+                    <div
+                      className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition ${
+                        editFormData.isPublic ? 'transform translate-x-full bg-green-500' : 'bg-gray-400'
+                      }`}
+                    ></div>
                   </div>
                 </label>
               </div>
@@ -351,7 +390,9 @@ const CertificateList = ({ refreshTrigger }) => {
           <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm relative text-center">
             <AlertTriangle className="mx-auto text-red-500 mb-4" size={40} />
             <h3 className="text-xl font-bold text-gray-800 mb-4">Confirm Deletion</h3>
-            <p className="text-gray-700 mb-6">Are you sure you want to delete this certificate? This action cannot be undone.</p>
+            <p className="text-gray-700 mb-6">
+              Are you sure you want to delete this certificate? This action cannot be undone.
+            </p>
             <div className="flex justify-center space-x-4">
               <button
                 onClick={() => setShowDeleteConfirmModal(false)}

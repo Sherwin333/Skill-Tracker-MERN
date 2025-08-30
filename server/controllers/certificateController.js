@@ -1,6 +1,5 @@
-// server/controllers/certificateController.js
-const cloudinary = require('cloudinary').v2;
-const Certificate = require('../models/Certificate');
+const cloudinary = require("cloudinary").v2;
+const Certificate = require("../models/Certificate");
 
 // @desc    Upload a certificate
 // @route   POST /api/certificates
@@ -8,16 +7,24 @@ const Certificate = require('../models/Certificate');
 exports.uploadCertificate = async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ msg: 'No file uploaded' });
+      return res.status(400).json({ msg: "No file uploaded" });
     }
 
-    // Upload file to Cloudinary
-    const result = await cloudinary.uploader.upload(req.file.path, {
-      folder: `skill-tracker/${req.user.id}/certificates`,
-      resource_type: 'auto',
+    // Upload buffer to Cloudinary
+    const result = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder: `skill-tracker/${req.user.id}/certificates`,
+          resource_type: "auto", // auto handles pdf, jpg, png
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      stream.end(req.file.buffer);
     });
 
-    // Accept isPublic on create (respect schema default if omitted)
     const {
       title,
       issuer,
@@ -39,15 +46,15 @@ exports.uploadCertificate = async (req, res) => {
       description,
       fileUrl: result.secure_url,
       filePublicId: result.public_id,
-      category: category || 'Other',
-      ...(typeof isPublic === 'boolean' ? { isPublic } : {}), // only set if provided
+      category: category || "Other",
+      ...(typeof isPublic === "boolean" ? { isPublic } : {}),
     });
 
     await newCertificate.save();
     return res.status(201).json(newCertificate);
   } catch (err) {
-    console.error('Error uploading certificate:', err);
-    return res.status(500).send('Server Error during certificate upload');
+    console.error("Error uploading certificate:", err);
+    return res.status(500).send("Server Error during certificate upload");
   }
 };
 
@@ -57,16 +64,15 @@ exports.uploadCertificate = async (req, res) => {
 exports.getUserCertificates = async (req, res) => {
   try {
     const query = { user: req.user.id };
-    // Optional filter: /api/certificates?public=true|false
-    if (typeof req.query.public !== 'undefined') {
-      query.isPublic = String(req.query.public).toLowerCase() === 'true';
+    if (typeof req.query.public !== "undefined") {
+      query.isPublic = String(req.query.public).toLowerCase() === "true";
     }
 
     const certificates = await Certificate.find(query).sort({ dateAdded: -1 });
     return res.json(certificates);
   } catch (err) {
-    console.error('Error fetching certificates:', err);
-    return res.status(500).send('Server Error');
+    console.error("Error fetching certificates:", err);
+    return res.status(500).send("Server Error");
   }
 };
 
@@ -76,54 +82,83 @@ exports.getUserCertificates = async (req, res) => {
 exports.getCertificateById = async (req, res) => {
   try {
     const certificate = await Certificate.findById(req.params.id);
-    if (!certificate) return res.status(404).json({ msg: 'Certificate not found' });
+    if (!certificate) return res.status(404).json({ msg: "Certificate not found" });
 
     if (certificate.user.toString() !== req.user.id) {
-      return res.status(401).json({ msg: 'User not authorized' });
+      return res.status(401).json({ msg: "User not authorized" });
     }
 
     return res.json(certificate);
   } catch (err) {
-    console.error('Error fetching single certificate:', err);
-    if (err.kind === 'ObjectId') {
-      return res.status(404).json({ msg: 'Certificate not found' });
+    console.error("Error fetching single certificate:", err);
+    if (err.kind === "ObjectId") {
+      return res.status(404).json({ msg: "Certificate not found" });
     }
-    return res.status(500).send('Server Error');
+    return res.status(500).send("Server Error");
   }
 };
 
-// @desc    Update a certificate
+// @desc    Update a certificate (with optional new file)
 // @route   PUT /api/certificates/:id
 // @access  Private
 exports.updateCertificate = async (req, res) => {
-  const {
-    title,
-    issuer,
-    issueDate,
-    credentialId,
-    credentialUrl,
-    description,
-    category,
-    isPublic, // NEW
-  } = req.body;
-
-  const certificateFields = {};
-  if (title !== undefined) certificateFields.title = title;
-  if (issuer !== undefined) certificateFields.issuer = issuer;
-  if (issueDate !== undefined) certificateFields.issueDate = issueDate;
-  if (credentialId !== undefined) certificateFields.credentialId = credentialId;
-  if (credentialUrl !== undefined) certificateFields.credentialUrl = credentialUrl;
-  if (description !== undefined) certificateFields.description = description;
-  if (category !== undefined) certificateFields.category = category;
-  if (isPublic !== undefined) certificateFields.isPublic = !!isPublic;
-  certificateFields.lastUpdated = Date.now();
-
   try {
     let certificate = await Certificate.findById(req.params.id);
-    if (!certificate) return res.status(404).json({ msg: 'Certificate not found' });
+    if (!certificate) return res.status(404).json({ msg: "Certificate not found" });
 
     if (certificate.user.toString() !== req.user.id) {
-      return res.status(401).json({ msg: 'User not authorized' });
+      return res.status(401).json({ msg: "User not authorized" });
+    }
+
+    const {
+      title,
+      issuer,
+      issueDate,
+      credentialId,
+      credentialUrl,
+      description,
+      category,
+      isPublic,
+    } = req.body;
+
+    const certificateFields = {
+      lastUpdated: Date.now(),
+    };
+    if (title !== undefined) certificateFields.title = title;
+    if (issuer !== undefined) certificateFields.issuer = issuer;
+    if (issueDate !== undefined) certificateFields.issueDate = issueDate;
+    if (credentialId !== undefined) certificateFields.credentialId = credentialId;
+    if (credentialUrl !== undefined) certificateFields.credentialUrl = credentialUrl;
+    if (description !== undefined) certificateFields.description = description;
+    if (category !== undefined) certificateFields.category = category;
+    if (isPublic !== undefined) certificateFields.isPublic = !!isPublic;
+
+    // If new file uploaded, replace on Cloudinary
+    if (req.file) {
+      if (certificate.filePublicId) {
+        try {
+          await cloudinary.uploader.destroy(certificate.filePublicId);
+        } catch (cloudErr) {
+          console.warn("Cloudinary delete warning:", cloudErr?.message || cloudErr);
+        }
+      }
+
+      const result = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: `skill-tracker/${req.user.id}/certificates`,
+            resource_type: "auto",
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        stream.end(req.file.buffer);
+      });
+
+      certificateFields.fileUrl = result.secure_url;
+      certificateFields.filePublicId = result.public_id;
     }
 
     certificate = await Certificate.findByIdAndUpdate(
@@ -134,11 +169,11 @@ exports.updateCertificate = async (req, res) => {
 
     return res.json(certificate);
   } catch (err) {
-    console.error('Error updating certificate:', err);
-    if (err.kind === 'ObjectId') {
-      return res.status(404).json({ msg: 'Certificate not found' });
+    console.error("Error updating certificate:", err);
+    if (err.kind === "ObjectId") {
+      return res.status(404).json({ msg: "Certificate not found" });
     }
-    return res.status(500).send('Server Error');
+    return res.status(500).send("Server Error");
   }
 };
 
@@ -148,28 +183,27 @@ exports.updateCertificate = async (req, res) => {
 exports.deleteCertificate = async (req, res) => {
   try {
     const certificate = await Certificate.findById(req.params.id);
-    if (!certificate) return res.status(404).json({ msg: 'Certificate not found' });
+    if (!certificate) return res.status(404).json({ msg: "Certificate not found" });
 
     if (certificate.user.toString() !== req.user.id) {
-      return res.status(401).json({ msg: 'User not authorized' });
+      return res.status(401).json({ msg: "User not authorized" });
     }
 
-    // Try to delete file from Cloudinary first (non-fatal if it fails)
     if (certificate.filePublicId) {
       try {
         await cloudinary.uploader.destroy(certificate.filePublicId);
       } catch (cloudErr) {
-        console.warn('Cloudinary delete warning:', cloudErr?.message || cloudErr);
+        console.warn("Cloudinary delete warning:", cloudErr?.message || cloudErr);
       }
     }
 
     await Certificate.deleteOne({ _id: req.params.id });
-    return res.json({ msg: 'Certificate removed' });
+    return res.json({ msg: "Certificate removed" });
   } catch (err) {
-    console.error('Error deleting certificate:', err);
-    if (err.kind === 'ObjectId') {
-      return res.status(404).json({ msg: 'Certificate not found' });
+    console.error("Error deleting certificate:", err);
+    if (err.kind === "ObjectId") {
+      return res.status(404).json({ msg: "Certificate not found" });
     }
-    return res.status(500).send('Server Error');
+    return res.status(500).send("Server Error");
   }
 };
