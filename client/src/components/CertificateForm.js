@@ -200,7 +200,7 @@ const handleUpload = async (e) => {
         {/* File Upload */}
         <div>
           <label htmlFor="certificateFile" className="block text-sm font-medium text-gray-700 mb-1">
-            <Upload className="inline-block mr-1" size={16} /> Certificate File (PDF/JPG/PNG) <span className="text-red-500">*</span>
+            <Upload className="inline-block mr-1" size={16} /> Certificate File (JPG/PNG) <span className="text-red-500">*</span>
           </label>
           <input
             type="file"

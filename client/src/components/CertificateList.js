@@ -107,7 +107,7 @@ const CertificateList = ({ refreshTrigger }) => {
     }
   };
 
-  // 🔥 Updated to handle FormData with file upload
+  // 🔥 Handle FormData with file upload
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -221,9 +221,10 @@ const CertificateList = ({ refreshTrigger }) => {
         </div>
       )}
 
+      {/* 🔥 Edit Modal */}
       {showEditModal && editingCertificate && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg relative">
+          <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-y-auto relative">
             <button
               onClick={() => setShowEditModal(false)}
               className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"
@@ -316,7 +317,7 @@ const CertificateList = ({ refreshTrigger }) => {
                 </select>
               </div>
 
-              {/* 🔥 File Upload for Replace */}
+              {/* 🔥 File Upload */}
               <div>
                 <label htmlFor="editFile" className="block text-sm font-medium text-gray-700 mb-1">
                   Replace Certificate File (optional)
@@ -367,7 +368,10 @@ const CertificateList = ({ refreshTrigger }) => {
 
               <button
                 type="submit"
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg 
+                           focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 
+                           transition duration-300 ease-in-out transform hover:scale-105 
+                           flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={loading}
               >
                 {loading ? (
@@ -385,9 +389,10 @@ const CertificateList = ({ refreshTrigger }) => {
         </div>
       )}
 
+      {/* 🔥 Delete Confirm Modal */}
       {showDeleteConfirmModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm relative text-center">
+          <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm relative text-center">
             <AlertTriangle className="mx-auto text-red-500 mb-4" size={40} />
             <h3 className="text-xl font-bold text-gray-800 mb-4">Confirm Deletion</h3>
             <p className="text-gray-700 mb-6">

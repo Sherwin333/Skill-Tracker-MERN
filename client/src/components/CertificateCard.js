@@ -41,7 +41,7 @@ const CertificateCard = ({ certificate, onDelete, onEdit }) => {
   return (
     <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-200 ease-in-out">
       {/* Title + Badges */}
-      <div className="flex justify-between items-start mb-4">
+      <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
         <h3 className="text-xl font-bold text-gray-900 leading-tight">{title}</h3>
         <div className="flex items-center space-x-2">
           {isPublic && (
@@ -115,25 +115,25 @@ const CertificateCard = ({ certificate, onDelete, onEdit }) => {
         )}
       </div>
 
-      {/* 🔧 Fixed Button Alignment with Grid */}
-      <div className="grid grid-cols-3 gap-2 mt-4">
+      {/* 🔧 Fixed Button Alignment */}
+      <div className="flex justify-between items-center gap-3 mt-4">
         <button
           onClick={handleDownload}
-          className="flex items-center justify-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-200 text-sm font-medium shadow-sm hover:shadow-md"
+          className="flex-1 flex items-center justify-center h-10 gap-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-200 text-sm font-medium shadow-sm hover:shadow-md"
         >
-          <Download className="mr-2" size={16} /> Download
+          <Download size={16} />
         </button>
         <button
           onClick={() => onEdit(certificate)}
-          className="flex items-center justify-center px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition duration-200 text-sm font-medium shadow-sm hover:shadow-md"
+          className="flex-1 flex items-center justify-center h-10 gap-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition duration-200 text-sm font-medium shadow-sm hover:shadow-md"
         >
-          <Edit className="mr-2" size={16} /> Edit
+          <Edit size={16} /> Edit
         </button>
         <button
           onClick={() => onDelete(_id)}
-          className="flex items-center justify-center px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-200 text-sm font-medium shadow-sm hover:shadow-md"
+          className="flex-1 flex items-center justify-center h-10 gap-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-200 text-sm font-medium shadow-sm hover:shadow-md"
         >
-          <Trash2 className="mr-2" size={16} /> Delete
+          <Trash2 size={16} /> Delete
         </button>
       </div>
     </div>
