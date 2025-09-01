@@ -1,258 +1,278 @@
-// client/src/pages/PublicPortfolioPage.js
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import CertificateCard from '../components/CertificateCard';
-import SkillCard from '../components/SkillCard';
-import ProjectCard from '../components/ProjectCard';
-import { RefreshCw, User, Mail, Award, Code, Folder, XCircle, Info, UserCircle, FileText } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
 import html2pdf from 'html2pdf.js';
+import { Share2, Copy, RefreshCw, Palette, Eye, User, ListOrdered, FileText, Calendar, Award, Info, Tag, Folder, Code, Github, ExternalLink, Link } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
-function PublicPortfolioPage() {
+const PublicPortfolioPage = () => {
   const { publicPortfolioId } = useParams();
   const [portfolioData, setPortfolioData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [error, setError] = useState(null);
+  const [theme, setTheme] = useState('Minimal');
+
+  const getThemeClasses = (themeName) => {
+    switch (themeName) {
+      case 'Modern':
+        return {
+          bg: 'bg-gray-50',
+          text: 'text-gray-900',
+          cardBg: 'bg-white',
+          cardBorder: 'border-gray-300',
+          heading: 'text-indigo-600',
+          subheading: 'text-indigo-500',
+        };
+      case 'Dark':
+        return {
+          bg: 'bg-gray-900',
+          text: 'text-gray-100',
+          cardBg: 'bg-gray-800',
+          cardBorder: 'border-gray-700',
+          heading: 'text-blue-400',
+          subheading: 'text-blue-300',
+        };
+      case 'Minimal':
+      default:
+        return {
+          bg: 'bg-white',
+          text: 'text-gray-800',
+          cardBg: 'bg-white',
+          cardBorder: 'border-gray-200',
+          heading: 'text-gray-900',
+          subheading: 'text-gray-700',
+        };
+    }
+  };
+
+  const themeClasses = getThemeClasses(theme);
 
   useEffect(() => {
-    const fetchPublicPortfolio = async () => {
-      setLoading(true);
-      setError('');
+    const fetchPortfolio = async () => {
       try {
-        const res = await fetch(`/api/public-portfolio/${publicPortfolioId}`);
+        const API_URL = process.env.REACT_APP_API_URL || '/api';
+        const res = await fetch(`${API_URL}/public-portfolio/${publicPortfolioId}`);
         const data = await res.json();
-
         if (!res.ok) {
-          setError(data.msg || 'Failed to load public portfolio.');
-          setPortfolioData(null);
-        } else {
-          setPortfolioData(data);
+          setError(data.msg || 'Portfolio not found.');
+          setLoading(false);
+          return;
         }
+        setPortfolioData(data);
+        if (data.user.portfolioSettings?.portfolioTheme) {
+          setTheme(data.user.portfolioSettings.portfolioTheme);
+        }
+        setLoading(false);
       } catch (err) {
-        console.error('Error fetching public portfolio:', err);
-        setError('Server error or network issue loading portfolio.');
-        setPortfolioData(null);
-      } finally {
+        setError('Server error. Could not load portfolio.');
         setLoading(false);
       }
     };
-
-    if (publicPortfolioId) {
-      fetchPublicPortfolio();
-    }
+    fetchPortfolio();
   }, [publicPortfolioId]);
 
-  // Helper function to get theme-specific classes
-  const getThemeClasses = (themeName) => {
-    switch (themeName) {
-      case 'modern':
-        return {
-          bg: 'bg-gradient-to-br from-blue-500 to-indigo-700',
-          cardBg: 'bg-white',
-          cardShadow: 'shadow-xl',
-          textColor: 'text-gray-900',
-          secondaryText: 'text-gray-700',
-          borderColor: 'border-blue-200',
-          sectionTitle: 'text-indigo-700',
-          iconColor: 'text-blue-600',
-        };
-      case 'minimal':
-        return {
-          bg: 'bg-gray-50',
-          cardBg: 'bg-white',
-          cardShadow: 'shadow-md',
-          textColor: 'text-gray-800',
-          secondaryText: 'text-gray-600',
-          borderColor: 'border-gray-100',
-          sectionTitle: 'text-gray-700',
-          iconColor: 'text-gray-500',
-        };
-      case 'dark':
-        return {
-          bg: 'bg-gray-900',
-          cardBg: 'bg-gray-800',
-          cardShadow: 'shadow-lg',
-          textColor: 'text-gray-100',
-          secondaryText: 'text-gray-300',
-          borderColor: 'border-gray-700',
-          sectionTitle: 'text-indigo-400',
-          iconColor: 'text-indigo-300',
-        };
-      case 'default':
-      default:
-        return {
-          bg: 'bg-gradient-to-br from-indigo-500 to-purple-600',
-          cardBg: 'bg-white',
-          cardShadow: 'shadow-2xl',
-          textColor: 'text-gray-900',
-          secondaryText: 'text-gray-600',
-          borderColor: 'border-gray-200',
-          sectionTitle: 'text-indigo-600',
-          iconColor: 'text-indigo-600',
-        };
+  const generatePDF = async () => {
+    const element = document.getElementById('portfolio-to-pdf');
+    const avatarImg = document.getElementById('portfolio-avatar');
+    
+    // Check if avatar exists and wait for it to load
+    if (avatarImg && !avatarImg.complete) {
+      await new Promise(resolve => {
+        avatarImg.onload = resolve;
+        avatarImg.onerror = resolve; // Continue even if there's an error
+      });
     }
-  };
 
-  const handleGeneratePdf = () => {
-    setIsGeneratingPdf(true);
-    const element = document.getElementById('portfolio-content');
+    // Temporarily apply print-friendly styles
+    const printStyles = `
+      .hide-on-pdf {
+        display: none !important;
+      }
+      .page-break {
+        page-break-before: always;
+      }
+      .public-portfolio-container {
+        padding: 20px;
+        color: #333;
+        background: #fff;
+      }
+      .public-portfolio-container h1, .public-portfolio-container h2 {
+        color: #333;
+      }
+      .public-portfolio-container p, .public-portfolio-container li {
+        color: #555;
+      }
+    `;
+    const styleSheet = document.createElement("style");
+    styleSheet.type = "text/css";
+    styleSheet.innerText = printStyles;
+    document.head.appendChild(styleSheet);
+    
+    // Create a temporary clone for PDF generation
+    const printElement = element.cloneNode(true);
+    const hideContainer = printElement.querySelector('.hide-on-pdf-container');
+    if (hideContainer) {
+      hideContainer.remove();
+    }
+    printElement.classList.add('public-portfolio-container');
+
+    // Append to a temporary div to get correct dimensions for PDF
+    const tempDiv = document.createElement('div');
+    tempDiv.appendChild(printElement);
+    document.body.appendChild(tempDiv);
+    
     const opt = {
-      margin:       0.5,
-      filename:     `${portfolioData.user.name.replace(/\s/g, '_')}_Portfolio.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, logging: true, dpi: 192, letterRendering: true },
-      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+      margin: [10, 10, 10, 10],
+      filename: `${portfolioData.user.name.replace(/\s/g, '_')}_Portfolio.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     };
+    
+    await html2pdf().from(printElement).set(opt).save();
 
-    html2pdf().set(opt).from(element).save().finally(() => {
-      setIsGeneratingPdf(false);
-    });
+    // Clean up temporary elements and styles
+    tempDiv.remove();
+    styleSheet.remove();
   };
+  
+  const renderSection = (title, items, renderComponent, icon) => {
+    if (!items || items.length === 0) return null;
 
-
+    return (
+      <div className="mb-8">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center ${themeClasses.heading}`}>
+          {icon}
+          <span className="ml-2">{title}</span>
+        </h2>
+        <div className="space-y-4">
+          {items.map(renderComponent)}
+        </div>
+      </div>
+    );
+  };
+  
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-8">
-        <RefreshCw className="animate-spin text-indigo-500 mb-4" size={40} />
-        <p className="text-xl text-gray-700">Loading portfolio...</p>
-      </div>
-    );
+    return <div className="flex justify-center items-center min-h-screen">Loading portfolio...</div>;
   }
-
+  
   if (error) {
-    return (
-      <div className="min-h-screen bg-red-50 flex flex-col items-center justify-center p-8 text-center">
-        <XCircle className="text-red-600 mb-4" size={40} />
-        <h1 className="text-3xl font-bold text-red-800 mb-2">Error Loading Portfolio</h1>
-        <p className="text-lg text-red-700">{error}</p>
-        <p className="text-md text-red-600 mt-4">This portfolio might not exist or is currently disabled.</p>
-      </div>
-    );
+    return <div className="flex justify-center items-center min-h-screen text-red-500">{error}</div>;
   }
+  
+  const { user, certificates, skills, projects } = portfolioData;
 
-  if (!portfolioData) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8 text-center">
-        <Info className="text-gray-500 mb-4" size={40} />
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Portfolio Not Found</h1>
-        <p className="text-lg text-gray-600">Please check the URL or contact the owner.</p>
-      </div>
-    );
-  }
-
-  const { user: portfolioUser, certificates, skills, projects } = portfolioData;
-  const theme = getThemeClasses(portfolioUser.portfolioTheme);
-  const { portfolioSettings } = portfolioUser; // Get advanced settings
-
-
-  // Map section names to their corresponding components and data
-  const sectionComponents = {
-    certificates: portfolioSettings.showCertificates && certificates.length > 0 && (
-      <div className="mb-10">
-        <h2 className={`text-3xl font-bold mb-6 flex items-center ${theme.sectionTitle}`}>
-          <Award className={`mr-3 ${theme.iconColor}`} size={30} /> My Certificates
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {certificates.map(cert => (
-            <CertificateCard key={cert._id} certificate={cert} onDelete={() => {}} onEdit={() => {}} />
-          ))}
+  const sections = [
+    { id: 'about', title: 'About Me', show: user.portfolioSettings?.showAbout, component: () => (
+      <p className={`mt-2 text-md ${themeClasses.text}`}>{user.portfolioSettings?.aboutMe}</p>
+    ) },
+    { id: 'certificates', title: 'My Certificates', show: user.portfolioSettings?.showCertificates, items: certificates, component: (item) => (
+      <div key={item._id} className={`${themeClasses.cardBg} p-4 rounded-lg shadow-md flex items-start space-x-4`}>
+        <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center">
+          <Award size={32} />
+        </div>
+        <div>
+          <h3 className={`font-semibold text-lg ${themeClasses.subheading}`}>{item.title}</h3>
+          <p className={`text-sm ${themeClasses.text}`}>{item.issuer}</p>
+          <p className={`text-xs ${themeClasses.text}`}>Issued: {new Date(item.issueDate).toLocaleDateString()}</p>
+          {item.description && <p className={`mt-2 text-sm ${themeClasses.text}`}>{item.description}</p>}
+          {item.credentialUrl && (
+            <a href={item.credentialUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-sm text-indigo-500 hover:underline mt-2">
+              <Link size={16} className="mr-1" /> Verify Credential
+            </a>
+          )}
         </div>
       </div>
-    ),
-    skills: portfolioSettings.showSkills && skills.length > 0 && (
-      <div className="mb-10">
-        <h2 className={`text-3xl font-bold mb-6 flex items-center ${theme.sectionTitle}`}>
-          <Code className={`mr-3 ${theme.iconColor}`} size={30} /> My Skills
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {skills.map(skill => (
-            <SkillCard key={skill._id} skill={skill} onDelete={() => {}} onEdit={() => {}} />
-          ))}
+    ), icon: <Award size={24} /> },
+    { id: 'skills', title: 'My Skills', show: user.portfolioSettings?.showSkills, items: skills, component: (item) => (
+      <div key={item._id} className={`${themeClasses.cardBg} p-4 rounded-lg shadow-md`}>
+        <h3 className={`font-semibold text-lg ${themeClasses.subheading}`}>{item.name}</h3>
+        <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full mt-1 ${themeClasses.text}`}>{item.category}</span>
+        <div className="w-full h-2 bg-gray-200 rounded-full mt-2">
+          <div
+            className="h-full rounded-full bg-indigo-500"
+            style={{
+              width: `${(item.level === 'Beginner' ? 25 : item.level === 'Intermediate' ? 50 : item.level === 'Advanced' ? 75 : 100)}%`,
+            }}
+          ></div>
+        </div>
+        <p className={`text-xs mt-1 text-right ${themeClasses.text}`}>{item.level}</p>
+        {item.description && <p className={`mt-2 text-sm ${themeClasses.text}`}>{item.description}</p>}
+      </div>
+    ), icon: <Code size={24} /> },
+    { id: 'projects', title: 'My Projects', show: user.portfolioSettings?.showProjects, items: projects, component: (item) => (
+      <div key={item._id} className={`${themeClasses.cardBg} p-4 rounded-lg shadow-md`}>
+        <h3 className={`font-semibold text-lg ${themeClasses.subheading}`}>{item.title}</h3>
+        {item.technologies.length > 0 && (
+          <p className={`text-sm mt-1 ${themeClasses.text}`}>
+            <span className="font-semibold">Technologies:</span> {item.technologies.join(', ')}
+          </p>
+        )}
+        <p className={`mt-2 text-sm ${themeClasses.text}`}>{item.description}</p>
+        <div className="flex space-x-4 mt-4">
+          {item.projectUrl && (
+            <a href={item.projectUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-sm font-semibold text-indigo-500 hover:underline">
+              <ExternalLink size={16} className="mr-1" /> Live Demo
+            </a>
+          )}
+          {item.githubUrl && (
+            <a href={item.githubUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-sm font-semibold text-indigo-500 hover:underline">
+              <Github size={16} className="mr-1" /> GitHub
+            </a>
+          )}
         </div>
       </div>
-    ),
-    projects: portfolioSettings.showProjects && projects.length > 0 && (
-      <div className="mb-10">
-        <h2 className={`text-3xl font-bold mb-6 flex items-center ${theme.sectionTitle}`}>
-          <Folder className={`mr-3 ${theme.iconColor}`} size={30} /> My Projects
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {projects.map(proj => (
-            <ProjectCard key={proj._id} project={proj} onDelete={() => {}} onEdit={() => {}} />
-          ))}
-        </div>
-      </div>
-    ),
-  };
+    ), icon: <Folder size={24} /> }
+  ];
 
-  // Filter out null/false sections and order them
-  const orderedSections = portfolioSettings.sectionOrder
-    .map(sectionName => sectionComponents[sectionName])
-    .filter(Boolean); // Filter out sections that are not enabled or have no data
-
+  const filteredSections = sections.filter(section => section.show);
+  const orderedSections = user.portfolioSettings?.sectionOrder?.length > 0
+    ? user.portfolioSettings.sectionOrder.map(id => filteredSections.find(s => s.id === id)).filter(Boolean)
+    : filteredSections;
 
   return (
-    <div className={`min-h-screen ${theme.bg} p-6 md:p-12`}>
-        {/* PDF Download Button - Outside the main content div so it's not part of the PDF */}
-        <div className="flex justify-end mb-6">
-            <button
-                onClick={handleGeneratePdf}
-                className="flex items-center px-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition duration-300 ease-in-out shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isGeneratingPdf}
-            >
-                {isGeneratingPdf ? (
-                    <>
-                        <RefreshCw className="animate-spin mr-2" size={20} /> Generating PDF...
-                    </>
-                ) : (
-                    <>
-                        <FileText className="mr-2" size={20} /> Download as PDF
-                    </>
-                )}
-            </button>
+    <div className={`min-h-screen ${themeClasses.bg} ${themeClasses.text}`}>
+      <div id="portfolio-to-pdf" className="container mx-auto py-8 px-4">
+        {/* Header Section */}
+        <div className="flex flex-col items-center text-center mb-8">
+          <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-200">
+            {user.avatarUrl && (
+              <img
+                id="portfolio-avatar"
+                src={user.avatarUrl}
+                alt={`${user.name}'s Avatar`}
+                className="w-full h-full object-cover"
+              />
+            )}
+          </div>
+          <h1 className={`text-4xl font-bold mt-4 ${themeClasses.heading}`}>{user.name}</h1>
+          <p className={`text-lg ${themeClasses.subheading}`}>{user.email}</p>
         </div>
 
-      <div id="portfolio-content" className={`container mx-auto ${theme.cardBg} rounded-xl ${theme.cardShadow} p-6 md:p-10 lg:p-12 max-w-5xl ${theme.textColor}`}>
-        {/* User Info Section */}
-        <div className={`text-center mb-10 pb-8 border-b-2 ${theme.borderColor}`}>
-          {portfolioUser.avatarUrl ? (
-            <img
-              src={portfolioUser.avatarUrl}
-              alt="Profile Avatar"
-              className={`w-40 h-40 rounded-full object-cover mx-auto mb-4 shadow-lg border-4 ${theme.iconColor.replace('text-', 'border-')}-300`}
-              onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/200x200/cccccc/333333?text=Avatar'; }}
-            />
-          ) : (
-            <UserCircle className={`mx-auto ${theme.iconColor} mb-4`} size={100} />
-          )}
-
-          <h1 className="text-5xl font-extrabold mb-3">{portfolioUser.name}</h1>
-          <p className={`text-xl ${theme.secondaryText} flex items-center justify-center`}>
-            <Mail className={`mr-2 ${theme.secondaryText}`} size={20} /> {portfolioUser.email}
-          </p>
-
-          {/* About Me Section */}
-          {portfolioSettings.aboutMe && (
-            <div className={`mt-6 pt-4 border-t ${theme.borderColor} text-left`}>
-              <h3 className={`text-2xl font-bold mb-3 ${theme.sectionTitle}`}>About Me</h3>
-              <p className={`text-lg ${theme.secondaryText} whitespace-pre-wrap`}>{portfolioSettings.aboutMe}</p>
-            </div>
-          )}
+        {/* PDF Download Button (Hidden in PDF) */}
+        <div className="text-right mb-8 hide-on-pdf">
+          <button onClick={generatePDF} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition duration-300">
+            <Share2 className="inline-block mr-2" size={16} /> Download as PDF
+          </button>
         </div>
-
-        {/* Dynamically rendered and ordered sections */}
-        {orderedSections.length > 0 ? (
-            orderedSections
-        ) : (
-            <div className={`text-center p-10 bg-gray-50 rounded-lg ${theme.secondaryText}`}>
-                <Info className="mx-auto mb-4" size={40} />
-                <p className="text-xl">No public content to display yet. The owner might be still building their portfolio or has chosen to hide all sections.</p>
-            </div>
-        )}
-
+        
+        {/* Dynamic Sections */}
+        {orderedSections.map(section => (
+          <div key={section.id}>
+            {section.id === 'about' && (
+              <div className="mb-8">
+                <h2 className={`text-2xl font-bold mb-4 flex items-center ${themeClasses.heading}`}>
+                  <User size={24} className="mr-2" />
+                  About Me
+                </h2>
+                {section.component()}
+              </div>
+            )}
+            {section.id !== 'about' && renderSection(section.title, section.items, section.component, section.icon)}
+          </div>
+        ))}
       </div>
     </div>
   );
-}
+};
 
 export default PublicPortfolioPage;
